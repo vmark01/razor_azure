@@ -1,0 +1,236 @@
+﻿@page
+@model IndexModel
+@using MovieCatalog.Web.Utils
+@using MovieCatalogApi.Entities
+@using Microsoft.AspNetCore.Mvc.TagHelpers
+@{
+    ViewData["Title"] = "Home page";
+}
+
+<div class="row">
+    <div class="col-md-4 col-12 text-center" style="font-size: 0.8em">
+        <div class="row">
+            <a class="btn btn-primary mb-1" asp-page="/Title">+ Új film</a>
+        </div>
+
+        <form method="get" class="row mt-3">
+            <div class="col-12 mb-3 pb-3 border-bottom text-center">
+                <label asp-for="Filter.Genres" class="fw-bold">Genres</label>
+                <div>
+                    @foreach (var genreWithCount in Model.GenresWithCounts)
+                    {
+                        var genreName = genreWithCount.Key.Name;
+                        var isChecked = Model.Filter.Genres?.Contains(genreName) ?? false;
+
+                        <div class="form-check form-check-inline">
+                            <input type="checkbox"
+                                   name="Filter.Genres"
+                                   value="@genreName"
+                                   id="Filter.Genres_@genreName"
+                                   class="form-check-input"
+                                   @(isChecked ? "checked" : "") />
+                            <label class="form-check-label" for="Filter.Genres_@genreName">
+                                @genreName (<small class="text-muted">@genreWithCount.Value</small>)
+                            </label>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="col-12 mb-3 pb-3 border-bottom text-center">
+                <label asp-for="Filter.TitleContains" class="fw-bold">Title</label>
+                <div class="row justify-content-center">
+                    <div class="col-8">
+                        <input asp-for="Filter.TitleContains" class="form-control" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 mb-3 pb-3 border-bottom text-center">
+                <label asp-for="Filter.TitleTypes" class="fw-bold">Type</label>
+                <div>
+                    @foreach (var tn in Enum.GetNames(typeof(TitleType)))
+                    {
+                        <div class="form-check form-check-inline">
+                            <input @(Model.Filter.TitleTypes?.Any(t => t.ToString() == tn) ?? false ? "checked" : string.Empty)
+                                   id="Filter.TitleTypes[@tn]" type="checkbox" name="Filter.TitleTypes" value="@tn"
+                                   class="form-check-input" />
+                            <label class="form-check-label" for="Filter.TitleTypes[@tn]">@tn</label>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="col-12 mb-3 pb-3 border-bottom">
+                <label asp-for="Filter.StartYearMin" class="fw-bold">Year of release</label>
+                <div class="row justify-content-center">
+                    <div class="col-auto">
+                        <input asp-for="Filter.StartYearMin" class="form-control" min="1900" max="2100" />
+                    </div>
+                    <div class="col-auto text-center">-</div>
+                    <div class="col-auto">
+                        <input asp-for="Filter.StartYearMax" class="form-control" min="1900" max="2100" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 mb-3 pb-3 border-bottom">
+                <label asp-for="Filter.EndYearMin" class="fw-bold">Year of finale (serials only)</label>
+                <div class="row justify-content-center">
+                    <div class="col-auto">
+                        <input asp-for="Filter.EndYearMin" class="form-control" min="1900" max="2100" />
+                    </div>
+                    <div class="col-auto text-center">-</div>
+                    <div class="col-auto">
+                        <input asp-for="Filter.EndYearMax" class="form-control" min="1900" max="2100" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 mb-3 pb-3 border-bottom">
+                <label asp-for="Filter.RuntimeMinutesMin" class="fw-bold">Runtime (minutes)</label>
+                <div class="row justify-content-center">
+                    <div class="col-auto">
+                        <input asp-for="Filter.RuntimeMinutesMin" class="form-control" min="1" max="9999" />
+                    </div>
+                    <div class="col-auto text-center">-</div>
+                    <div class="col-auto">
+                        <input asp-for="Filter.RuntimeMinutesMax" class="form-control" min="1" max="999" />
+                    </div>
+                </div>
+            </div>
+
+            @* Csak a nem Filter.* query paramétereket tartsuk meg *@
+            @foreach (var (key, value) in Request.Query
+                        .Where(kv => !kv.Key.StartsWith("Filter.")))
+            {
+                <input type="hidden" name="@key" value="@value" />
+            }
+
+            <div class="row">
+                <button type="submit" class="btn btn-primary fw-bold">Filter titles</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="col-md-8 col-12">
+        <nav class="text-center mb-2">
+            <div class="m-2 border">@Model.Titles.AllResultsCount results.</div>
+
+            @if (Model.Titles.Results.Count > 0)
+            {
+                <ul class="pagination row g-0" style="font-size: 0.8em">
+                    @{
+                        var last = 0;
+                    }
+                    @foreach (var i in Model.PageNumberOptions)
+                    {
+                        if (last != 0 && i - last > 1)
+                        {
+                            <li class="page-item col g-0">
+                                <i class="page-link text-muted">...</i>
+                            </li>
+                        }
+                        last = i;
+                        <li class="page-item col @(i == Model.PageNumber ? "active font-weight-bold" : "")">
+                            <a class="page-link"
+                               asp-all-route-data="Request.Query.ToDictionary(v => v.Key, v => v.Value.ToString())"
+                               asp-route-PageNumber="@i">
+                                @i
+                            </a>
+                        </li>
+                    }
+                </ul>
+            }
+
+            <div class="row">
+                <div class="col">
+                    <form method="get">
+                        <label for="sPageSize">Page size</label>
+                        <select id="sPageSize" class="form-control" name="PageSize" onchange="this.form.submit()">
+                            @foreach (var size in new int[] { 10, 20, 30, 60, 120 })
+                            {
+                                <option value="@size" selected="@(size == Model.PageSize)">@size</option>
+                            }
+                        </select>
+                        @foreach (var (key, value) in Request.Query
+                                                .Where(q => !q.Key.StartsWith("Filter.") &&
+                                                q.Key != nameof(Model.PageSize) &&
+                                                q.Key != nameof(Model.PageNumber)))
+                        {
+                            <input type="hidden" name="@key" value="@value" />
+                        }
+                        <input type="hidden" name="PageNumber" value="1" />
+                    </form>
+                </div>
+
+                <div class="col">
+                    <form method="get">
+                        <label for="sTitleSort">Ordered by</label>
+                        <select id="sTitleSort" class="form-control" name="TitleSort" onchange="this.form.submit()">
+                            @foreach (var sortOption in Enum.GetValues(typeof(TitleSort)).Cast<TitleSort>())
+                            {
+                                <option value="@sortOption" selected="@(sortOption == Model.TitleSort)">
+                                    @sortOption
+                                </option>
+                            }
+                        </select>
+                        @foreach (var (key, value) in Request.Query
+                                                .Where(q => !q.Key.StartsWith("Filter.") &&
+                                                q.Key != nameof(Model.TitleSort) &&
+                                                q.Key != nameof(Model.PageNumber)))
+                        {
+                            <input type="hidden" name="@key" value="@value" />
+                        }
+                        <input type="hidden" name="PageNumber" value="1" />
+                    </form>
+                </div>
+
+                <div class="col">
+                    <form method="get">
+                        <label for="sSortDescending">Order direction</label>
+                        <select id="sSortDescending" class="form-control" name="SortDescending" onchange="this.form.submit()">
+                            <option value="true" selected="@Model.SortDescending">Descending</option>
+                            <option value="false" selected="@(!Model.SortDescending)">Ascending</option>
+                        </select>
+                        @foreach (var (key, value) in Request.Query
+                                                .Where(q => !q.Key.StartsWith("Filter.") &&
+                                                q.Key != nameof(Model.SortDescending) &&
+                                                q.Key != nameof(Model.PageNumber)))
+                        {
+                            <input type="hidden" name="@key" value="@value" />
+                        }
+                        <input type="hidden" name="PageNumber" value="1" />
+                    </form>
+                </div>
+            </div>
+        </nav>
+
+        <div class="row">
+            @foreach (var title in Model.Titles.Results)
+            {
+                <div class="col-6 col-lg-4 mb-3">
+                    <div class="card">
+                        <div class="card-body">
+                            <a asp-page="/Title" asp-route-Id="@title.Id">
+                                <h5>
+                                    @title.PrimaryTitle
+                                    @if (!string.IsNullOrEmpty(title.OriginalTitle) && title.OriginalTitle != title.PrimaryTitle)
+                                    {
+                                        <small><i> - @title.OriginalTitle</i></small>
+                                    }
+                                    <small>(@title.StartYear@(title.EndYear != null ? " - " + title.EndYear : ""))</small>
+                                </h5>
+                            </a>
+                            <span class="badge rounded-pill bg-primary text-nowrap">@title.TitleType</span>
+                            @foreach (var tg in title.TitleGenres)
+                            {
+                                <span class="badge rounded-pill bg-secondary text-nowrap">@tg.Genre.Name</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
