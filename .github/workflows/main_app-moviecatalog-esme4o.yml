@@ -28,8 +28,7 @@ jobs:
         run: dotnet publish -c Release -o ${{env.DOTNET_ROOT}}/myapp
 
       - name: Copy DACPAC
-        run: |
-          cp MovieCatalog.Web/imdbtitles_sample_azure.dacpac ${{env.DOTNET_ROOT}}/myapp
+        run: cp MovieCatalog.Web/MovieCatalog.Web/imdbtitles_sample_azure.dacpac ${{env.DOTNET_ROOT}}/myapp
 
       - name: Upload artifact for deployment
         uses: actions/upload-artifact@v4
