@@ -1,6 +1,3 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
-
 name: Build and deploy ASP.Net Core app to Azure Web App - app-moviecatalog-ESME4O
 
 on:
@@ -13,15 +10,16 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read #This is required for actions/checkout
+      contents: read # szükséges az actions/checkout-hoz
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Set up .NET Core
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.x'
+          dotnet-version: '8.x' # igazítsd a projekted .NET verziójához
 
       - name: Build with dotnet
         run: dotnet build --configuration Release
@@ -29,7 +27,11 @@ jobs:
       - name: dotnet publish
         run: dotnet publish -c Release -o ${{env.DOTNET_ROOT}}/myapp
 
-      - name: Upload artifact for deployment job
+      - name: Copy DACPAC
+        run: |
+          cp MovieCatalog.Web/imdbtitles_sample_azure.dacpac ${{env.DOTNET_ROOT}}/myapp
+
+      - name: Upload artifact for deployment
         uses: actions/upload-artifact@v4
         with:
           name: .net-app
@@ -39,8 +41,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
+      id-token: write # szükséges az Azure loginhoz
+      contents: read
 
     steps:
       - name: Download artifact from build job
@@ -51,9 +53,9 @@ jobs:
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_2C5B881EB1794CA3854D1EC44A266F6A }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_15438E7B5C1D4A7CAF44C4C2E358D6BF }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_866C078954524F5CAB965946F2F44F85 }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID }}
 
       - name: Deploy to Azure Web App
         id: deploy-to-webapp
@@ -61,5 +63,4 @@ jobs:
         with:
           app-name: 'app-moviecatalog-ESME4O'
           slot-name: 'Production'
-          package: .
-          
+          package: ${{env.DOTNET_ROOT}}/myapp
